@@ -6,6 +6,9 @@ from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy as np
+import plotly.express as px
+
 
 
 # =========================
@@ -327,56 +330,179 @@ def main():
     st.dataframe(mapping_df)
 
     # 2D projection for visualization
-    st.subheader("Step 4: t-SNE semantic map")
-    st.write("Computing 2D projection for visualization (this may take some seconds for large datasets)...")
+st.subheader("Step 4: Interactive semantic map (Plotly)")
+st.write("Computing 2D projection for visualization (this may take some seconds for large datasets)...")
 
-    try:
-        X_2d = create_tsne_2d_projection(X_tfidf)
-        df_keywords["x"] = X_2d[:, 0]
-        df_keywords["y"] = X_2d[:, 1]
+try:
+    X_2d = create_tsne_2d_projection(X_tfidf)
+    df_keywords["x"] = X_2d[:, 0]
+    df_keywords["y"] = X_2d[:, 1]
 
-        # For visualization, we keep numeric cluster IDs
-        df_plot = df_keywords[["keyword", "cluster_id", "x", "y"]].rename(columns={"cluster_id": "cluster"})
-        fig = plot_semantic_map(df_plot)
-        st.pyplot(fig)
+    # ---- Metrics (English + German support) ----
+    def resolve_col(mapping: dict, df_cols, candidates: list[str]):
+        """
+        Tries to resolve a column name from:
+        1) mapping keys (exact),
+        2) direct df columns match (case-insensitive).
+        Returns the real column name or None.
+        """
+        # 1) Try mapping first
+        for key in candidates:
+            col = mapping.get(key)
+            if col and col in df_cols:
+                return col
 
-        st.caption("Note: Colorbar shows numeric cluster IDs. See the mapping table above for human-readable names.")
-    except Exception as e:
-        st.warning(f"Could not compute t-SNE projection: {e}")
+        # 2) Fallback: match by df column names (case-insensitive)
+        lower_to_real = {c.lower().strip(): c for c in df_cols}
+        for key in candidates:
+            if key.lower().strip() in lower_to_real:
+                return lower_to_real[key.lower().strip()]
 
-    # Merge cluster labels back into the original dataframe
-    st.subheader("Step 5: Download clustered data")
+        return None
 
-    # We merge by index to keep the original structure (including metrics)
-    df_with_clusters = df_original.copy()
-    df_with_clusters.loc[df_keywords.index, "cluster_id"] = df_keywords["cluster_id"]
-    df_with_clusters.loc[df_keywords.index, "cluster_name"] = df_keywords["cluster_name"]
+    clicks_col = resolve_col(mapping, df_original.columns, ["clicks", "klicks"])
+    impr_col   = resolve_col(mapping, df_original.columns, ["impressions", "impressionen"])
+    ctr_col    = resolve_col(mapping, df_original.columns, ["ctr"])
 
-    st.write("Sample of the final clustered dataset:")
-    st.dataframe(df_with_clusters.head())
-
-    # Prepare file for download
-    if output_format.startswith("Excel"):
-        output = io.BytesIO()
-        df_with_clusters.to_excel(output, index=False)
-        output.seek(0)
-        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        file_label = "Download clustered keywords (Excel)"
-        file_name = "clustered_keywords.xlsx"
+    # attach metrics to df_keywords (aligned by index)
+    if clicks_col:
+        df_keywords["clicks"] = pd.to_numeric(
+            df_original.loc[df_keywords.index, clicks_col],
+            errors="coerce"
+        ).fillna(0)
     else:
-        csv_bytes = df_with_clusters.to_csv(index=False).encode("utf-8")
-        output = csv_bytes
-        mime = "text/csv"
-        file_label = "Download clustered keywords (CSV)"
-        file_name = "clustered_keywords.csv"
+        df_keywords["clicks"] = 0
 
-    st.download_button(
-        label=file_label,
-        data=output,
-        file_name=file_name,
-        mime=mime,
+    if impr_col:
+        df_keywords["impressions"] = pd.to_numeric(
+            df_original.loc[df_keywords.index, impr_col],
+            errors="coerce"
+        ).fillna(0)
+    else:
+        df_keywords["impressions"] = 0
+
+    if ctr_col:
+        # CTR can come as "0.12" or "12%" depending on export
+        raw_ctr = (
+            df_original.loc[df_keywords.index, ctr_col]
+            .astype(str)
+            .str.replace("%", "", regex=False)
+            .str.replace(",", ".", regex=False)  # helps if decimal comma appears
+        )
+        df_keywords["ctr"] = pd.to_numeric(raw_ctr, errors="coerce")
+
+        # If values look like 0-1, convert to %
+        if df_keywords["ctr"].dropna().between(0, 1).mean() > 0.8:
+            df_keywords["ctr"] = df_keywords["ctr"] * 100
+
+        df_keywords["ctr"] = df_keywords["ctr"].fillna(0)
+    else:
+        df_keywords["ctr"] = 0
+
+    # ---- Sidebar filters for the chart ----
+    st.sidebar.subheader("Semantic map filters")
+
+    cluster_options = (
+        df_keywords[["cluster_id", "cluster_name"]]
+        .drop_duplicates()
+        .sort_values(["cluster_id"])
     )
 
+    default_clusters = cluster_options["cluster_name"].tolist()
 
-if __name__ == "__main__":
-    main()
+    selected_cluster_names = st.sidebar.multiselect(
+        "Show clusters",
+        options=cluster_options["cluster_name"].tolist(),
+        default=default_clusters
+    )
+
+    # Range filters
+    cmin, cmax = float(df_keywords["clicks"].min()), float(df_keywords["clicks"].max())
+    imin, imax = float(df_keywords["impressions"].min()), float(df_keywords["impressions"].max())
+
+    clicks_range = st.sidebar.slider(
+        "Clicks range",
+        min_value=float(cmin),
+        max_value=float(cmax),
+        value=(float(cmin), float(cmax)),
+        step=max(1.0, float((cmax - cmin) / 100) if cmax > cmin else 1.0),
+    )
+
+    impressions_range = st.sidebar.slider(
+        "Impressions range",
+        min_value=float(imin),
+        max_value=float(imax),
+        value=(float(imin), float(imax)),
+        step=max(1.0, float((imax - imin) / 100) if imax > imin else 1.0),
+    )
+
+    keyword_search = st.sidebar.text_input("Search keyword (contains)", value="").strip()
+
+    # Apply filters
+    df_plot = df_keywords.copy()
+    df_plot = df_plot[df_plot["cluster_name"].isin(selected_cluster_names)]
+    df_plot = df_plot[(df_plot["clicks"] >= clicks_range[0]) & (df_plot["clicks"] <= clicks_range[1])]
+    df_plot = df_plot[(df_plot["impressions"] >= impressions_range[0]) & (df_plot["impressions"] <= impressions_range[1])]
+
+    if keyword_search:
+        df_plot = df_plot[df_plot["keyword"].str.contains(keyword_search, case=False, na=False)]
+
+    # Avoid size=0 for plotly bubble sizing
+    df_plot["size_clicks"] = df_plot["clicks"].clip(lower=0)
+    if df_plot["size_clicks"].max() == 0:
+        df_plot["size_clicks"] = 1
+
+    # ---- Plotly interactive scatter ----
+    fig = px.scatter(
+        df_plot,
+        x="x",
+        y="y",
+        color="cluster_name",
+        size="size_clicks",
+        size_max=18,
+        hover_data={
+            "keyword": True,
+            "cluster_id": True,
+            "cluster_name": True,
+            "clicks": ":.0f",
+            "impressions": ":.0f",
+            "ctr": ":.2f",
+            "x": False,
+            "y": False,
+            "size_clicks": False,
+        },
+        title="Semantic map of keywords (t-SNE + TF-IDF)",
+    )
+
+    fig.update_layout(
+        height=720,
+        legend_title_text="Cluster",
+        margin=dict(l=20, r=20, t=60, b=20),
+    )
+
+    fig.update_traces(marker=dict(opacity=0.85))
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # ---- Cluster summary table ----
+    st.subheader("Cluster summary (filtered view)")
+    summary = (
+        df_plot.groupby(["cluster_id", "cluster_name"], as_index=False)
+        .agg(
+            keywords=("keyword", "count"),
+            total_clicks=("clicks", "sum"),
+            total_impressions=("impressions", "sum"),
+            avg_ctr=("ctr", "mean"),
+        )
+        .sort_values(["total_clicks", "total_impressions"], ascending=False)
+    )
+
+    st.dataframe(summary, use_container_width=True)
+
+    st.caption(
+        "Tip: Use the sidebar filters + zoom/box-select to explore clusters. "
+        "Bubble size = clicks, color = cluster name."
+    )
+
+except Exception as e:
+    st.warning(f"Could not compute t-SNE projection: {e}")
