@@ -1,36 +1,45 @@
 # SEO Keyword Clustering App
 
-This repository contains a Streamlit application for clustering SEO keywords based on their semantic similarity.
+This repository contains a Streamlit application for clustering SEO keywords based on their semantic similarity.  
+The tool is designed for SEO analysis and works with Google Search Console–like datasets in English and German.
+
+---
 
 ## Features
 
 - Upload **.xls / .xlsx / .csv** files with Search Console data.
-- Automatic detection of keyword column in **English** or **German**:
-  - English: `Top queries`, `Clicks`, `Impressions`, `CTR`
-  - German: `Suchanfrage`, `Klicks`, `Impressionen`, `CTR`
-- TF-IDF + KMeans clustering of keywords.
+- Automatic detection of the keyword column in **English** or **German**:
+  - **English**: `Top queries`, `Clicks`, `Impressions`, `CTR`
+  - **German**: `Suchanfrage`, `Klicks`, `Impressionen`, `CTR`
+- Keyword vectorization using **TF-IDF**.
+- Keyword clustering using **KMeans**.
 - Automatic **cluster naming** based on dominant n-grams (top TF-IDF terms per cluster).
-- t-SNE **semantic map** of keyword clusters.
-- Downloadable output with additional `cluster_id` and `cluster_name` columns.
+- **Interactive t-SNE semantic map** of keyword clusters (Plotly).
+- Downloadable output file including additional:
+  - `cluster_id`
+  - `cluster_name`
+
+---
+
+## Dependencies
+
+This app requires the following Python libraries:
+
+- streamlit
+- pandas
+- numpy
+- scikit-learn
+- matplotlib
+- plotly (for interactive visualizations)
+- openpyxl (for Excel file support)
+
+All dependencies are listed in the `requirements.txt` file.
+
+---
 
 ## Installation
 
+Create and activate a virtual environment (recommended), then install the dependencies:
+
 ```bash
 pip install -r requirements.txt
-```
-
-## Running the app locally
-
-```bash
-streamlit run app.py
-```
-
-## Deploying on Streamlit Cloud
-
-1. Push this repository to GitHub.
-2. Go to Streamlit Cloud and create a new app.
-3. Select your GitHub repo and set:
-   - **Main file**: `app.py`
-4. Click **Deploy**.
-
-Enjoy exploring and clustering your SEO keywords!
