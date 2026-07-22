@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
 
+from branding import apply_branding, brand_header, project_panel, metric_guide, signature
+
 
 # =========================
 # Data loading and utilities
@@ -206,17 +208,33 @@ def main():
         layout="wide",
     )
 
-    st.title("SEO Keyword Clustering App")
-    st.write(
-        """
-        Upload a **.xls / .xlsx / .csv** file with your Search Console data and get:
-        - A new file with additional **cluster_id** and **cluster_name** columns.
-        - A **semantic similarity map** of your keywords based on TF-IDF + t-SNE.
+    apply_branding()
+    brand_header(
+        "SEO Keyword Clustering",
+        "Turn a raw Search Console export into themed keyword groups you can build content around.",
+    )
+    project_panel(
+        "Upload your Search Console query data and this tool groups keywords by meaning using "
+        "TF-IDF vectorization and KMeans clustering. Each cluster is named after its dominant "
+        "terms and plotted on an interactive semantic map, so you can spot topic clusters, "
+        "prioritize by traffic, and structure your site or content calendar around real demand.",
+        points=[
+            "Accepts .xls / .xlsx / .csv exports in English or German column formats.",
+            "Returns your file enriched with cluster_id and cluster_name columns.",
+            "Interactive map: bubble size = clicks, color = cluster.",
+        ],
+    )
 
-        Supported column languages:
-        - English: `Top queries`, `Clicks`, `Impressions`, `CTR`
-        - German: `Suchanfrage`, `Klicks`, `Impressionen`, `CTR`
-        """
+    metric_guide(
+        "How to read these metrics",
+        {
+            "Cluster": "A group of keywords that are semantically similar. Each represents a topic you can target with one page or content hub.",
+            "Cluster name": "The top n-grams (most weighted terms) of the cluster, used as a human-readable label.",
+            "Clicks": "Actual visits from Search Console for that keyword. Bubble size on the map reflects this.",
+            "Impressions": "How often the keyword appeared in search results. High impressions with low clicks flag ranking or snippet opportunities.",
+            "CTR": "Click-through rate (clicks / impressions). Low CTR on high-impression clusters points to titles and meta descriptions worth improving.",
+            "Semantic map (t-SNE)": "A 2D projection where nearby points are semantically related. Tight groups are coherent topics; scattered points are outliers.",
+        },
     )
 
     # Sidebar controls
@@ -494,7 +512,7 @@ def main():
         buffer.seek(0)
         
         st.download_button(
-            label="📥 Download Excel file",
+            label="Download Excel file",
             data=buffer,
             file_name="keyword_clusters.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -505,13 +523,14 @@ def main():
         csv_data = csv_buffer.getvalue()
         
         st.download_button(
-            label="📥 Download CSV file",
+            label="Download CSV file",
             data=csv_data,
             file_name="keyword_clusters.csv",
             mime="text/csv"
         )
-    
-    st.success("✅ Clustering complete! Download your results above.")
+
+    st.success("Clustering complete. Download your results above.")
+    signature()
 
 
 if __name__ == "__main__":
