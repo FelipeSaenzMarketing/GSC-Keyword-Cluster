@@ -46,29 +46,30 @@ def apply_branding() -> None:
             --brand-divider: {DIVIDER};
         }}
 
-        html, body, [class*="css"], .stApp, [data-testid="stAppViewContainer"] {{
+        /* Typography only. Colors/backgrounds are pinned by .streamlit/config.toml
+           (base = "light") so contrast stays correct regardless of the viewer's
+           system theme. We intentionally do NOT force text color here, which would
+           risk dark-on-dark text on any surface. */
+        html, body, .stApp, [data-testid="stAppViewContainer"],
+        [data-testid="stSidebar"], .stMarkdown, p, li, label,
+        h1, h2, h3, h4, h5, .stButton, .stDownloadButton {{
             font-family: 'Montserrat', sans-serif !important;
-            color: var(--brand-text);
         }}
-
-        .stApp {{ background-color: var(--brand-bg); }}
 
         h1, h2, h3, h4 {{
-            font-family: 'Montserrat', sans-serif !important;
             font-weight: 800 !important;
-            color: var(--brand-text) !important;
             letter-spacing: -0.01em;
-        }}
-
-        p, li, label, .stMarkdown {{
-            font-family: 'Montserrat', sans-serif !important;
         }}
 
         /* Keep Streamlit's Material icon glyphs (expander arrows, etc.) on their
            icon font instead of inheriting Montserrat, which would show the raw
-           ligature text like "keyboard_arrow_right". */
-        [data-testid="stIconMaterial"], span[data-testid="stIconMaterial"] {{
-            font-family: 'Material Symbols Rounded', 'Material Symbols Outlined' !important;
+           ligature text like "keyboard_arrow_right". Cover the font names used
+           across Streamlit versions. */
+        [data-testid="stIconMaterial"],
+        span[data-testid="stIconMaterial"],
+        .material-icons, .material-symbols-rounded, .material-symbols-outlined {{
+            font-family: 'Material Symbols Rounded', 'Material Symbols Outlined',
+                         'Material Symbols Sharp', 'Material Icons' !important;
         }}
 
         /* Primary buttons and download buttons */
