@@ -60,8 +60,15 @@ def apply_branding() -> None:
             letter-spacing: -0.01em;
         }}
 
-        p, li, span, label, .stMarkdown {{
+        p, li, label, .stMarkdown {{
             font-family: 'Montserrat', sans-serif !important;
+        }}
+
+        /* Keep Streamlit's Material icon glyphs (expander arrows, etc.) on their
+           icon font instead of inheriting Montserrat, which would show the raw
+           ligature text like "keyboard_arrow_right". */
+        [data-testid="stIconMaterial"], span[data-testid="stIconMaterial"] {{
+            font-family: 'Material Symbols Rounded', 'Material Symbols Outlined' !important;
         }}
 
         /* Primary buttons and download buttons */
